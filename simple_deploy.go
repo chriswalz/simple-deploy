@@ -10,9 +10,13 @@ import (
 )
 
 // easiest way to daemonize a go app?
+// update readme with gif on how to use
+// update readme with setup guide
 
 func main() {
+	log.SetFlags(log.Lshortfile)
 	var binaryName = "app"
+	var appName = "sdapp"
 
 	// todo add "STATUS" section
 	app := cli.NewApp()
@@ -30,11 +34,20 @@ func main() {
 			exec.Command("supervisorctl tail -5000 goapp stdout; supervisorctl tail -5000 goapp stderr")
 			return nil
 		}
+		if c.Args().Get(0) == "upload-supervisor-config" {
+			if c.Args().Len() < 3 {
+				return cli.NewExitError("Error: missing host address\nUsage: simple-deploy upload-supervisor-config <host> <config>\nExample: simple-deploy upload-supervisor-config joe@example.com configs/app.conf", 1)
+			}
+			user, address := deploy.GetSSHArgs(c.Args().Get(1))
+			buddy := deploy.SetupClient(user, address)
+			buddy.CopySupervisorConfigToRemote(c.Args().Get(2))
+			return nil
+		}
 		user, address := deploy.GetSSHArgs(c.Args().Get(0))
 		buddy := deploy.SetupClient(user, address)
 		paths := strings.Split(c.Args().Get(1), ",")
 
-		buddy.Deploy(binaryName, user, address, true, paths)
+		buddy.Deploy(binaryName, appName, user, address, paths)
 		return nil
 	}
 

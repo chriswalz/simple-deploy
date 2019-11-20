@@ -25,10 +25,8 @@ type Buddy struct {
 	*ssh.Client
 }
 
-
-func (b *Buddy) Deploy(BinaryName, user, address string, overwrite bool, paths []string) {
+func (b *Buddy) Deploy(BinaryName, appName, user, address string, paths []string) {
 	var err error
-	log.SetFlags(log.Lshortfile)
 
 	now := time.Now()
 	rand.Seed(time.Now().UTC().UnixNano())
@@ -36,13 +34,14 @@ func (b *Buddy) Deploy(BinaryName, user, address string, overwrite bool, paths [
 
 	b.BuildAndZip(paths[0], paths[1:], BinaryName, nowFormatted)
 
-
 	binaryZip := BinaryName + ".zip"
-	b.CopyToRemote(binaryZip, "../usr/local/bin/" + binaryZip)
-	b.RunCmdRemotely(
-		fmt.Sprintf("cd /usr/local/bin/;unzip -qq -o %s.zip;chmod u+x %s;", BinaryName, BinaryName) +
-			"supervisorctl restart goapp;")
-
+	b.CopyToRemote(binaryZip, "../usr/local/bin/"+binaryZip)
+	b.RunCmdsRemotely(
+		"cd /usr/local/bin/",
+		fmt.Sprintf("unzip -qq -o %s.zip", BinaryName),
+		fmt.Sprintf("chmod u+x %s", BinaryName),
+		fmt.Sprintf("supervisorctl restart %v", appName),
+	)
 
 	resp, err := http.Get("https://" + address)
 	if err != nil {
@@ -89,10 +88,9 @@ func SetupClient(user, address string) *Buddy {
 		Auth: []ssh.AuthMethod{
 			ssh.PublicKeys(signer),
 		},
-		HostKeyCallback: ssh.HostKeyCallback(func(hostname string, remote net.Addr, key ssh.PublicKey) error { return nil }),
+		HostKeyCallback: func(hostname string, remote net.Addr, key ssh.PublicKey) error { return nil },
 		Timeout: time.Duration(20) * time.Second,
 	})
-
 
 	if err != nil {
 		log.Println(err)
@@ -101,7 +99,6 @@ func SetupClient(user, address string) *Buddy {
 			client,
 		}
 	}
-
 
 	// if ssh key fails try using password
 	fmt.Print("Enter server password: ")
@@ -112,13 +109,13 @@ func SetupClient(user, address string) *Buddy {
 	pw = string(bytePassword)
 	fmt.Println()
 
-	client, err = ssh.Dial("tcp", address + ":22", &ssh.ClientConfig{
+	client, err = ssh.Dial("tcp", address+":22", &ssh.ClientConfig{
 		User: user,
 		Auth: []ssh.AuthMethod{
 			ssh.Password(pw),
 		},
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout: time.Duration(20) * time.Second,
+		Timeout:         time.Duration(20) * time.Second,
 	})
 	if err != nil {
 		log.Fatalf("Failed to dial: %s@%s, error: %s", user, address, err.Error())
@@ -128,7 +125,7 @@ func SetupClient(user, address string) *Buddy {
 	}
 }
 
-func (b *Buddy) RunCmdRemotelyGetOutput(cmdStr string) string{
+func (b *Buddy) RunCmdRemotelyGetOutput(cmdStr string) string {
 	var err error
 
 	conn, err := b.NewSession()
@@ -164,6 +161,23 @@ func (b *Buddy) RunCmdRemotely(cmdStr string) {
 	}
 }
 
+func (b *Buddy) RunCmdsRemotely(cmds ...string) {
+	var err error
+	conn, err := b.NewSession()
+	if err != nil {
+		log.Fatal(err)
+	}
+	out, err := conn.CombinedOutput(strings.Join(cmds, ";"))
+	if err != nil {
+		_, file, no, ok := runtime.Caller(1)
+		if !ok {
+			log.Fatal("couldn't get caller")
+		}
+		fmt.Printf("%s#%d\n", file, no)
+		log.Fatal(string(out), err)
+	}
+}
+
 func (b *Buddy) CopyToRemote(srcPath, dstPath string) {
 	if !strings.Contains(dstPath, ".") {
 		log.Fatal("destination path must also include the name of the file that will be created", dstPath)
@@ -179,7 +193,7 @@ func (b *Buddy) CopyToRemote(srcPath, dstPath string) {
 	// Open the source file
 	srcFile, err := os.Open(srcPath)
 	if err != nil {
-		log.Fatal(err, ": ",srcPath)
+		log.Fatal(err, ": ", srcPath)
 	}
 	defer srcFile.Close()
 
@@ -197,11 +211,11 @@ func (b *Buddy) CopyToRemote(srcPath, dstPath string) {
 	}
 }
 
-func (b *Buddy) BuildAndZip(mainFilePath string, additionalPaths []string, binaryName, version string)  {
+func (b *Buddy) BuildAndZip(mainFilePath string, additionalPaths []string, binaryName, version string) {
 	var err error
 	log.SetFlags(log.Lshortfile)
 
-	zipName := binaryName+ ".zip"
+	zipName := binaryName + ".zip"
 	os.Remove(zipName)
 
 	cmd := exec.Command("go", "build", "-o", binaryName, mainFilePath)
@@ -221,7 +235,7 @@ func (b *Buddy) BuildAndZip(mainFilePath string, additionalPaths []string, binar
 		ContinueOnError:        false,
 		OverwriteExisting:      false,
 		ImplicitTopLevelFolder: false,
-		KeepParentDirectories: false,
+		KeepParentDirectories:  false,
 	}
 
 	archivePaths := append(additionalPaths, binaryName)
