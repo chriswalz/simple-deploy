@@ -95,6 +95,7 @@ func SetupClient(user, address string) *Buddy {
 	if err != nil {
 		log.Println(err)
 	} else {
+		log.Println("Connected to server.")
 		return &Buddy{
 			client,
 		}
