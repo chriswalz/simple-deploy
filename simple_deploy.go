@@ -5,7 +5,6 @@ import (
 	"github.com/urfave/cli"
 	"log"
 	"os"
-	"os/exec"
 	"strings"
 )
 
@@ -24,23 +23,33 @@ func main() {
 	app.Usage = "Fast and simple deploy to unix server"
 	app.Version = "0.7.1"
 	app.Action = func(c *cli.Context) error {
-		if c.Args().Len() < 2 {
-			return cli.NewExitError("Error: missing host address\nUsage: simple-deploy <host> <filePaths>\nExample: simple-deploy joe@example.com dir/main.go,static/files", 1)
-		}
 		if c.Args().Get(0) == "logs" {
-			if c.Args().Len() < 2 {
+			if len(c.Args()) < 2 {
 				return cli.NewExitError("Error: missing host address\nUsage: simple-deploy logs <host>\nExample: simple-deploy logs joe@example.com", 1)
 			}
-			exec.Command("supervisorctl tail -5000 goapp stdout; supervisorctl tail -5000 goapp stderr")
+			user, address := deploy.GetSSHArgs(c.Args().Get(1))
+			buddy := deploy.SetupClient(user, address)
+			buddy.RunCmdRemotely("supervisorctl tail -5000 goapp stdout; supervisorctl tail -5000 goapp stderr")
 			return nil
 		}
 		if c.Args().Get(0) == "upload-supervisor-config" {
-			if c.Args().Len() < 3 {
+			if len(c.Args()) < 3 {
 				return cli.NewExitError("Error: missing host address\nUsage: simple-deploy upload-supervisor-config <host> <config>\nExample: simple-deploy upload-supervisor-config joe@example.com configs/app.conf", 1)
 			}
 			user, address := deploy.GetSSHArgs(c.Args().Get(1))
 			buddy := deploy.SetupClient(user, address)
 			buddy.CopySupervisorConfigToRemote(c.Args().Get(2))
+			return nil
+		}
+		if c.Args().Get(0) == "docker" {
+			if len(c.Args()) < 3 {
+				return cli.NewExitError("Error: missing host address\nUsage: simple-deploy docker <host> <images>\nExample: simple-deploy docker joe@example.com redis,mysql", 1)
+			}
+			user, address := deploy.GetSSHArgs(c.Args().Get(1))
+			buddy := deploy.SetupClient(user, address)
+			images := strings.Split(c.Args().Get(2), ",")
+
+			buddy.InstallDockerOnUbuntu(images)
 			return nil
 		}
 		user, address := deploy.GetSSHArgs(c.Args().Get(0))

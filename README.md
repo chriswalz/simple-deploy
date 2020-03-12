@@ -3,3 +3,9 @@
 ssh-copy-id -i /Users/{user}/.ssh/{keyName}.pub root@{host}
 
 e.g. ssh-copy-id -i /Users/Joe/.ssh/my_rsa.pub root@example.com
+
+
+#Contributor notes 
+
+## add to bin
+go install

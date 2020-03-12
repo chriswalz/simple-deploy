@@ -3,7 +3,7 @@ package deploy
 import (
 	"compress/flate"
 	"fmt"
-	"github.com/chriswalz/archiver"
+	"github.com/mholt/archiver/v3"
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 	"golang.org/x/crypto/ssh/terminal"
@@ -236,7 +236,6 @@ func (b *Buddy) BuildAndZip(mainFilePath string, additionalPaths []string, binar
 		ContinueOnError:        false,
 		OverwriteExisting:      false,
 		ImplicitTopLevelFolder: false,
-		KeepParentDirectories:  false,
 	}
 
 	archivePaths := append(additionalPaths, binaryName)

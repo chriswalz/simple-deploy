@@ -2,13 +2,18 @@ package deploy
 
 import "strings"
 
-func (b *Buddy) installDockerOnUbuntu() {
+func (b *Buddy) InstallDockerOnUbuntu(images []string) {
 	b.RunCmdsRemotely(
-		"sudo apt install docker.io",
+		"sudo apt install -y docker.io",
 		"sudo systemctl start docker",
 		"sudo systemctl enable docker",
-
 	)
+	for _, image := range images {
+		b.RunCmdRemotely(
+			"docker pull " + image,
+		)
+	}
+
 }
 
 func (b *Buddy) updateUbuntu() {
